@@ -77,10 +77,12 @@ Spider는 train(공개, 정답 포함) / dev(공개, 정답 포함) / **test(비
 
 ## 미확정 사항 (착수 시 확인 필요)
 
-- **로컬 GPU 자원 → 일단 대기, Colab으로 진행 (2026-08-10 결정)**: 개인 GPU가 RTX 5060 8GB인데, (1) VRAM이 vLLM+QLoRA 동시 운용에 여유가 부족하고 (2) Blackwell(sm_120) 아키텍처가 아직 stable PyTorch/vLLM에서 정식 지원되지 않아 로컬 세팅 리스크가 큼. 대신 Colab(T4 16GB)을 Claude Code에서 [Colab MCP 서버](https://github.com/googlecolab/colab-mcp)로 직접 제어하는 방식으로 우선 진행. 프로젝트 루트에 `.mcp.json`으로 서버 등록 완료(git 미추적). 단, Colab 무료 티어의 세션 12시간 제한/주간 GPU 할당량/배정 불확실성은 그대로 남아있어, 본 실험(5개 조건 정식 측정) 단계에서 끊김이 반복되면 Colab Pro나 RunPod 재검토 필요
+- **로컬 GPU 자원 → 일단 대기, Colab으로 진행 (2026-08-10 결정)**: 개인 GPU가 RTX 5060 8GB인데, (1) VRAM이 vLLM+QLoRA 동시 운용에 여유가 부족하고 (2) Blackwell(sm_120) 아키텍처가 아직 stable PyTorch/vLLM에서 정식 지원되지 않아 로컬 세팅 리스크가 큼. 대신 Colab(T4 16GB)으로 우선 진행. 단, Colab 무료 티어의 세션 12시간 제한/주간 GPU 할당량/배정 불확실성은 그대로 남아있어, 본 실험(5개 조건 정식 측정) 단계에서 끊김이 반복되면 Colab Pro나 RunPod 재검토 필요
 - 베이스 모델은 Qwen2.5-Coder-7B로 잠정 확정(2026-08 기준 조사) — 착수 시점에 Qwen3-Coder 등 신규 모델 재조사 후 최종 확정
 - 파인튜닝 시 사용할 정확한 하이퍼파라미터 (rank, alpha, learning rate 등)는 착수 후 실험적으로 결정 — 참고: 최근 QLoRA 사례는 r=64, alpha=16, lr 2e-4~2e-5 부근에서 시작
+- **로컬 베이스 모델 생성/채점 분리 (2026-08-10)**: GPU가 필요한 예측 생성은 Colab에서, 채점은 로컬에서 진행. `notebooks/condition2_local_qwen_colab.ipynb`로 Colab에서 vLLM + Qwen2.5-Coder-7B-Instruct-AWQ(T4 16GB에서 fp16 풀모델은 KV 캐시 여유가 부족해 AWQ 양자화 사용)를 서빙해 예측 jsonl을 생성하고, `scripts/score_predictions.py`로 로컬에서 test-suite accuracy를 계산(4.9GB test_suite_database가 로컬에만 있어서). 예측 결과(jsonl)와 채점 결과(summary.json)를 분리해두면 재채점/재현이 쉬워짐 — 조건 3~5도 동일 패턴 재사용 예정
 
 ---
 *2026-08-10: 최신 동향 조사 반영 (벤치마크 확장 계획, 로컬 모델/서빙 스택, 평가지표, RAG 기법 업데이트)*
 *2026-08-10: 클라우드 API 베이스라인을 Anthropic API에서 Google Gemini로 확정 (보유 API 키 기준). 20개 파일럿에서 test-suite accuracy 0.9 확인 후 전환*
+*2026-08-10: 조건 2 진행 방식을 노트북(Colab, 생성) + 스크립트(로컬, 채점) 분리로 정리*
