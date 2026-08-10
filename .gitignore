@@ -16,3 +16,5 @@ adapters/
 .env.*
 
 .ipynb_checkpoints/
+
+.mcp.json
