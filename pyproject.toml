@@ -7,6 +7,9 @@ dependencies = [
     "datasets>=2.20",
     "pandas>=2.2",
     "anthropic>=0.40",
+    "sqlparse>=0.5",
+    "nltk>=3.9",
+    "tqdm>=4.66",
 ]
 
 [dependency-groups]
