@@ -1,4 +1,4 @@
-# 프로젝트 1: Text-to-SQL — RAG vs 파인튜닝 비교 연구
+# 프로젝트: Text-to-SQL — RAG vs 파인튜닝 비교 연구
 
 ## 목적
 
@@ -22,7 +22,9 @@
 
 - **1차 파이프라인 검증용**: WikiSQL (단일 테이블, 구조 단순 — 파이프라인 버그를 빠르게 잡기 위함)
 - **본 실험용**: Spider (멀티 테이블, 표준 벤치마크, 리더보드 비교 가능)
-- 두 데이터셋 모두 Hugging Face Hub에서 로드 (`datasets` 라이브러리)
+- **확장 단계(8단계 완료 후)**: BIRD — 노이즈 있는 DB 값, 외부 지식 그라운딩이 포함되어 RAG vs 파인튜닝 비교에 더 현실적. Spider로 얻은 결론이 일반화되는지 재검증 용도. Spider와 마찬가지로 dev split만 평가셋으로 사용하고 train/파인튜닝/RAG 인덱스에 섞지 않음
+- 세 데이터셋 모두 Hugging Face Hub에서 로드 (`datasets` 라이브러리)
+- Spider 2.0(엔터프라이즈급, o1-preview도 21.3%만 해결)은 이 프로젝트 스코프에 비해 과도하게 복잡해 제외
 
 ### Spider 데이터셋 구성 (중요 — 스플릿별 용도 구분)
 
@@ -41,29 +43,31 @@ Spider는 train(공개, 정답 포함) / dev(공개, 정답 포함) / **test(비
 
 ## 평가 지표
 
-- **Execution Accuracy**: 생성된 SQL을 실제 DB에 실행해 결과가 정답과 일치하는지
-- **Exact Match**: SQL 쿼리 문자열/구조 일치 여부 (참고 지표, execution accuracy가 주 지표)
+- **Test-Suite Accuracy** (주 지표): 단일 DB 인스턴스 실행 결과 비교가 아니라, 정답 쿼리 기준으로 생성된 여러 DB 인스턴스 전체에서 실행 결과가 일치하는지 검증 — 단순 execution accuracy 대비 우연한 일치(false positive)를 줄임. Spider 공식 지표(2020~)이며 참조 구현 [taoyds/test-suite-sql-eval](https://github.com/taoyds/test-suite-sql-eval) 재사용
+- **Exact Match**: SQL 쿼리 문자열/구조 일치 여부 (참고 지표)
 - 5개 조건 전체를 하나의 비교표로 정리 (조건 × 지표)
 - 부가 지표: 응답 지연시간(latency), 로컬 모델의 경우 VRAM 사용량
 
 ## 기술 스택
 
 - Python, FastAPI (평가 파이프라인을 API로 감싸 재사용 가능하게)
-- 로컬 모델 서빙: Ollama 또는 vLLM (모델 후보: Llama 3 8B, Qwen2.5 7B 계열 — 착수 시 최신 오픈소스 모델 재조사 필요)
+- 로컬 모델 서빙: vLLM (재시작 없이 LoRA 어댑터 교체 가능 — 5개 조건을 전환하며 측정하는 실험 구조에 필요. Ollama는 이 기능이 없어 배제)
+- 로컬 베이스 모델: Qwen2.5-Coder-7B (코드/SQL 특화 베이스, 이미 SQL 전용으로 튜닝된 모델(SQLCoder 등)은 파인튜닝 전/후 비교 취지에 안 맞아 제외. VRAM 여유가 있으면 착수 시점 Qwen3-Coder 계열 재검토)
 - 파인튜닝: Hugging Face `transformers`, `peft`(LoRA/QLoRA), `trl`
-- RAG: 벡터 DB(pgvector 또는 로컬 파일 기반 cosine similarity — 기존 DBot 프로젝트 방식 재사용 가능), 스키마 설명 + few-shot 예제 검색
+- RAG: 벡터 DB(pgvector 또는 로컬 파일 기반 cosine similarity — 기존 DBot 프로젝트 방식 재사용 가능), 스키마 설명 + few-shot 예제 검색. 검색 전 질문에서 관련 테이블/컬럼을 먼저 추리는 schema linking 단계 추가 고려
 - 클라우드 API 베이스라인: Anthropic API
 
 ## 진행 순서
 
 1. 평가셋 확정 (Spider **dev** split을 held-out 평가셋으로 고정 — test split은 비공개이므로 사용 불가)
-2. 평가 스크립트 작성 (execution accuracy 자동 계산, 5개 조건 공통으로 재사용)
+2. 평가 스크립트 작성 (test-suite accuracy 자동 계산, 5개 조건 공통으로 재사용)
 3. 클라우드 API 베이스라인 측정
-4. 로컬 베이스 모델 서빙 환경 구축 (Ollama/vLLM) 후 베이스라인 측정
-5. RAG 파이프라인 구축 (스키마 검색 + few-shot 예제 검색) 후 측정
+4. 로컬 베이스 모델(Qwen2.5-Coder-7B) 서빙 환경 구축 (vLLM) 후 베이스라인 측정
+5. RAG 파이프라인 구축 (스키마 링킹 + few-shot 예제 검색) 후 측정
 6. LoRA/QLoRA 파인튜닝 (Spider train split 사용) 후 측정
 7. 파인튜닝 모델 + RAG 결합 측정
 8. 5개 조건 비교표 작성, 결론 도출
+9. (확장) 동일 프레임워크를 BIRD 데이터셋에 재적용해 결론의 일반화 여부 검증
 
 ## 포트폴리오 방향
 
@@ -74,5 +78,8 @@ Spider는 train(공개, 정답 포함) / dev(공개, 정답 포함) / **test(비
 ## 미확정 사항 (착수 시 확인 필요)
 
 - 로컬 GPU 자원 (개인 GPU 사양, 또는 Colab/RunPod 등 클라우드 GPU 대여 여부)
-- 베이스 모델 최종 선정 (착수 시점 기준 최신 오픈소스 모델 재조사)
-- 파인튜닝 시 사용할 정확한 하이퍼파라미터 (rank, alpha, learning rate 등)는 착수 후 실험적으로 결정
+- 베이스 모델은 Qwen2.5-Coder-7B로 잠정 확정(2026-08 기준 조사) — 착수 시점에 Qwen3-Coder 등 신규 모델 재조사 후 최종 확정
+- 파인튜닝 시 사용할 정확한 하이퍼파라미터 (rank, alpha, learning rate 등)는 착수 후 실험적으로 결정 — 참고: 최근 QLoRA 사례는 r=64, alpha=16, lr 2e-4~2e-5 부근에서 시작
+
+---
+*2026-08-10: 최신 동향 조사 반영 (벤치마크 확장 계획, 로컬 모델/서빙 스택, 평가지표, RAG 기법 업데이트)*

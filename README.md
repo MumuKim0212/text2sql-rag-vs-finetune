@@ -1,6 +1,6 @@
 # Text-to-SQL: RAG vs 파인튜닝 비교 연구
 
-프로젝트 배경/목적/진행 순서는 [project1-text2sql-brief.md](project1-text2sql-brief.md) 참고.
+프로젝트 배경/목적/진행 순서는 [project-text2sql-brief.md](project-text2sql-brief.md) 참고.
 
 ## 개발 환경
 
