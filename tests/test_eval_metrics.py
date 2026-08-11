@@ -25,6 +25,25 @@ def test_perfect_predictions_score_1():
     assert result["exact_match"] == 1.0
 
 
+def test_ragged_predictions_stay_aligned_with_gold():
+    """Multi-line and empty predictions must not shift later ones onto the wrong gold.
+
+    The vendored evaluator reads gold/predictions line-by-line, so before
+    normalization a single multi-line prediction silently misaligned every
+    prediction after it, and an empty one broke parsing outright.
+    """
+    gold_sql, gold_db_ids = _dev_sample()
+    predictions = list(gold_sql)
+    predictions[0] = predictions[0].replace(" ", "\n", 1)  # correct, just not on one line
+    predictions[1] = ""  # wrong, but must not derail the rest
+
+    scores = evaluate(predictions, gold_sql, gold_db_ids, DB_DIR, TABLES_JSON, etype="exec")
+    result = summarize(scores, etype="exec")
+
+    assert result["n"] == N
+    assert result["test_suite_accuracy"] == (N - 1) / N
+
+
 def test_wrong_predictions_score_0():
     gold_sql, gold_db_ids = _dev_sample()
     wrong_sql = ["SELECT 1"] * N

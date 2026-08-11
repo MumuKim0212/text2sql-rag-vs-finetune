@@ -22,6 +22,7 @@ from rag_text2sql.models import PROVIDERS
 
 DB_DIR = Path("data/spider/test_suite_database")
 TABLES_JSON = Path("data/spider/tables.json")
+PLUG_VALUE = False  # official Spider default; recorded in summary.json so results stay self-describing
 
 
 def _load_existing(out_path: Path) -> list[dict]:
@@ -78,8 +79,9 @@ def main() -> None:
         [r["db_id"] for r in records],
         DB_DIR,
         TABLES_JSON,
+        plug_value=PLUG_VALUE,
     )
-    result = {"provider": args.provider, "model": model, **summarize(scores)}
+    result = {"provider": args.provider, "model": model, "plug_value": PLUG_VALUE, **summarize(scores)}
     print(result)
     (out_path.parent / "summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
 

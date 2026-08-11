@@ -23,6 +23,19 @@ except LookupError:
     nltk.download("punkt_tab", quiet=True)
 
 
+def _to_single_line(sql: str) -> str:
+    """Flatten one query to a single non-empty line for the evaluator's file format.
+
+    The vendored evaluator parses the gold and prediction files line-by-line:
+    a newline inside one query silently shifts every later prediction onto the
+    wrong gold (its zip() just truncates, no error), and a query that is empty
+    after stripping is read as a session separator and trips an assert. Local
+    models routinely emit multi-line SQL, so both are normalized away here.
+    Empty predictions become a query that fails to execute, i.e. scored wrong.
+    """
+    return " ".join(sql.splitlines()).strip() or "SELECT"
+
+
 def evaluate(
     predicted_sql: list[str],
     gold_sql: list[str],
@@ -30,7 +43,7 @@ def evaluate(
     db_dir: str | Path,
     tables_json: str | Path,
     etype: str = "all",
-    plug_value: bool = True,
+    plug_value: bool = False,
 ) -> dict:
     """Score predicted SQL against gold SQL using Spider's official metrics.
 
@@ -39,10 +52,12 @@ def evaluate(
     single-instance `database/` folder silently degenerates Test-Suite
     Accuracy into plain single-instance execution accuracy.
 
-    `plug_value=True` (default) substitutes the gold query's literal values
-    into the predicted query before execution, matching the brief's Text-to-
-    SQL setup where models are scored on structure/schema linking rather than
-    exact literal reproduction.
+    `plug_value=False` (default) matches the official Spider evaluation's own
+    default, which is what leaderboard numbers are measured with. Setting it
+    True additionally scores variants of the prediction with the gold query's
+    literal values plugged in, crediting structure/schema linking even when a
+    literal is wrong -- a strictly easier setting whose scores must not be
+    compared against the leaderboard.
 
     Returns the vendored evaluate()'s scores dict, keyed by difficulty level
     ("easy"/"medium"/"hard"/"extra"/"all"/"joint_all"), each with 'exec'
@@ -58,10 +73,12 @@ def evaluate(
         gold_path = Path(tmp) / "gold.txt"
         pred_path = Path(tmp) / "pred.txt"
         gold_path.write_text(
-            "\n".join(f"{sql}\t{db_id}" for sql, db_id in zip(gold_sql, gold_db_ids)),
+            "\n".join(
+                f"{_to_single_line(sql)}\t{db_id}" for sql, db_id in zip(gold_sql, gold_db_ids)
+            ),
             encoding="utf-8",
         )
-        pred_path.write_text("\n".join(predicted_sql), encoding="utf-8")
+        pred_path.write_text("\n".join(_to_single_line(sql) for sql in predicted_sql), encoding="utf-8")
 
         return _ts_evaluate(
             str(gold_path),

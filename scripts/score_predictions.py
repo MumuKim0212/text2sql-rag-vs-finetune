@@ -18,6 +18,7 @@ from rag_text2sql.eval import evaluate, summarize
 
 DB_DIR = Path("data/spider/test_suite_database")
 TABLES_JSON = Path("data/spider/tables.json")
+PLUG_VALUE = False  # official Spider default; recorded in summary.json so results stay self-describing
 
 
 def main() -> None:
@@ -35,8 +36,9 @@ def main() -> None:
         [r["db_id"] for r in records],
         DB_DIR,
         TABLES_JSON,
+        plug_value=PLUG_VALUE,
     )
-    result = {"condition": args.condition, **summarize(scores)}
+    result = {"condition": args.condition, "plug_value": PLUG_VALUE, **summarize(scores)}
     print(result)
 
     out_dir = Path(f"data/results/{args.condition}")
