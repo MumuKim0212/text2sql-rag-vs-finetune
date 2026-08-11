@@ -11,6 +11,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "sqlparse>=0.5",
     "nltk>=3.9",
+    "sentence-transformers>=3.0",
     "tqdm>=4.66",
 ]
 
