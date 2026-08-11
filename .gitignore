@@ -4,8 +4,15 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# Datasets are re-downloadable, so they stay out; predictions/scores are this
+# project's own output and are small enough to track. tables.json is tracked
+# because it ships with Spider but is absent from the HF dataset.
 data/*
 !data/.gitkeep
+!data/results/
+!data/spider/
+data/spider/*
+!data/spider/tables.json
 
 *.gguf
 *.safetensors
