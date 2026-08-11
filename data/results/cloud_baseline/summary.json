@@ -1,0 +1,7 @@
+{
+  "condition": "cloud_baseline",
+  "plug_value": false,
+  "test_suite_accuracy": 0.8307543520309478,
+  "exact_match": 0.804642166344294,
+  "n": 1034
+}

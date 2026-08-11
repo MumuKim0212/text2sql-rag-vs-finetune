@@ -1,0 +1,7 @@
+{
+  "condition": "local_base",
+  "plug_value": false,
+  "test_suite_accuracy": 0.7272727272727273,
+  "exact_match": 0.5647969052224371,
+  "n": 1034
+}
