@@ -7,20 +7,23 @@ def build_prompt(
     examples: list[tuple[str, str]],
     values: list[tuple[str, str, str]] | None = None,
 ) -> str:
-    """Prepend retrieved (question, SQL) demonstrations to condition 2's prompt.
+    """Add retrieved demonstrations and/or linked database values to condition 2's prompt.
 
-    Without `values`, everything from "Schema:" onwards is byte-identical to the
-    no-RAG prompt, so the retrieved examples are the only difference between the
-    two conditions. `values` adds linked database literals just before the
-    question, where they sit closest to the text they need to correct.
+    Both blocks are optional and independent, which is what makes conditions
+    2/3a/3d/3c a clean 2x2 over (few-shot, values): with neither, this returns
+    condition 2's prompt exactly, so each block's contribution is separable.
+    Values sit just before the question, closest to the text they correct.
     """
-    demonstrations = "\n\n".join(f"Question: {q}\nSQL: {sql}" for q, sql in examples)
+    demonstrations = ""
+    if examples:
+        rendered = "\n\n".join(f"Question: {q}\nSQL: {sql}" for q, sql in examples)
+        demonstrations = f"Here are examples of questions and the SQL that answers them:\n\n{rendered}\n\n"
     value_block = ""
     if values:
         linked = "\n".join(f'  {table}.{column} = "{value}"' for table, column, value in values)
         value_block = f"Values in the database matching words in the question:\n{linked}\n\n"
     return (
-        f"Here are examples of questions and the SQL that answers them:\n\n{demonstrations}\n\n"
+        f"{demonstrations}"
         f"Schema:\n{schema_prompt}\n\n"
         f"{value_block}"
         f"Question: {question}\nSQL:"

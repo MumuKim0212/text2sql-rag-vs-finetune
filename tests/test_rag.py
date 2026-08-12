@@ -148,3 +148,28 @@ def test_build_prompt_ends_with_the_no_rag_prompt():
 
     assert prompt.endswith(f"Schema:\n{schema_prompt}\n\nQuestion: {question}\nSQL:")
     assert "Question: How many cats?\nSQL: SELECT count(*) FROM cats" in prompt
+
+
+def test_build_prompt_with_neither_block_is_condition_2s_prompt():
+    """The 2x2 over (few-shot, values) only holds if the empty cell reproduces condition 2."""
+    schema_prompt = 'CREATE TABLE "singer" (\n  "id" number\n)'
+    question = "How many singers are there?"
+
+    prompt = build_prompt(schema_prompt, question, [])
+
+    assert prompt == f"Schema:\n{schema_prompt}\n\nQuestion: {question}\nSQL:"
+
+
+def test_build_prompt_values_only_omits_the_examples_header():
+    """Condition 3d is condition 2's prompt plus the value block, nothing else."""
+    schema_prompt = 'CREATE TABLE "Pets" (\n  "PetType" text\n)'
+    question = "who has a cat?"
+
+    prompt = build_prompt(schema_prompt, question, [], [("Pets", "PetType", "cat")])
+
+    assert "Here are examples" not in prompt
+    assert prompt == (
+        f"Schema:\n{schema_prompt}\n\n"
+        'Values in the database matching words in the question:\n  Pets.PetType = "cat"\n\n'
+        f"Question: {question}\nSQL:"
+    )

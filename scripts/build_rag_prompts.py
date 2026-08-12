@@ -71,6 +71,7 @@ def main() -> None:
         "few-shot": args.out_dir / "local_rag" / "prompts.jsonl",
         "+ schema linking": args.out_dir / "local_rag_linked" / "prompts.jsonl",
         "+ value linking": args.out_dir / "local_rag_values" / "prompts.jsonl",
+        "values only": args.out_dir / "local_rag_values_only" / "prompts.jsonl",
     }
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,13 +95,16 @@ def main() -> None:
             n_hits += len(hits)
 
             record = {"question": question, "db_id": db_id, "gold_sql": gold_sql[i]}
+            # (variant, schema, examples, values) -- "values only" drops the demonstrations
+            # so that conditions 2/3a/3d/3c form a 2x2 over (few-shot, values).
             variants = (
-                ("few-shot", format_schema_prompt(schema), None),
-                ("+ schema linking", format_schema_prompt(prune_schema(schema, keep)), None),
-                ("+ value linking", format_schema_prompt(schema), hits),
+                ("few-shot", format_schema_prompt(schema), examples, None),
+                ("+ schema linking", format_schema_prompt(prune_schema(schema, keep)), examples, None),
+                ("+ value linking", format_schema_prompt(schema), examples, hits),
+                ("values only", format_schema_prompt(schema), [], hits),
             )
-            for name, schema_prompt, values in variants:
-                prompt = build_prompt(schema_prompt, question, examples, values)
+            for name, schema_prompt, shots, values in variants:
+                prompt = build_prompt(schema_prompt, question, shots, values)
                 lengths[name].append(len(prompt))
                 files[name].write(json.dumps({**record, "prompt": prompt}, ensure_ascii=False) + "\n")
     finally:

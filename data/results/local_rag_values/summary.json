@@ -1,0 +1,7 @@
+{
+  "condition": "local_rag_values",
+  "plug_value": false,
+  "test_suite_accuracy": 0.7379110251450677,
+  "exact_match": 0.6895551257253385,
+  "n": 1034
+}
