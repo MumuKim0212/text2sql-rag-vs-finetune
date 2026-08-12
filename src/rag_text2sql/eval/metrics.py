@@ -92,6 +92,9 @@ def evaluate(
         )
 
 
+DIFFICULTY_LEVELS = ("easy", "medium", "hard", "extra")
+
+
 def summarize(scores: dict, etype: str = "all") -> dict:
     """Pull the headline "all"-level numbers used in the 5-condition comparison table.
 
@@ -99,10 +102,21 @@ def summarize(scores: dict, etype: str = "all") -> dict:
     carries an 'exact' key, but it's only meaningfully computed when etype was
     "all" or "match" -- otherwise it's reported as None here rather than a
     misleading 0.0.
+
+    The per-difficulty split is computed by the evaluator anyway, so it's kept
+    here too: an aggregate that moves says a condition helped, but not whether
+    it helped on the simple queries or the ones that were actually hard.
     """
-    all_scores = scores["all"]
+    scored_exact = etype in ("all", "match")
+
+    def _level(level: str) -> dict:
+        return {
+            "test_suite_accuracy": scores[level]["exec"],
+            "exact_match": scores[level]["exact"] if scored_exact else None,
+            "n": scores[level]["count"],
+        }
+
     return {
-        "test_suite_accuracy": all_scores["exec"],
-        "exact_match": all_scores["exact"] if etype in ("all", "match") else None,
-        "n": all_scores["count"],
+        **_level("all"),
+        "by_difficulty": {level: _level(level) for level in DIFFICULTY_LEVELS},
     }

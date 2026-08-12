@@ -38,12 +38,33 @@ def main() -> None:
         TABLES_JSON,
         plug_value=PLUG_VALUE,
     )
-    result = {"condition": args.condition, "plug_value": PLUG_VALUE, **summarize(scores)}
-    print(result)
-
     out_dir = Path(f"data/results/{args.condition}")
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    summary_path = out_dir / "summary.json"
+
+    result = {"condition": args.condition, "plug_value": PLUG_VALUE, **summarize(scores)}
+    print(result)
+    summary_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
+
+    # Per-example results, so paired comparisons between conditions can be run
+    # without re-executing every query against the test-suite databases.
+    per_example = scores["per_example"]
+    if len(per_example) != len(records):
+        raise RuntimeError(f"per-example results ({len(per_example)}) do not line up with predictions ({len(records)})")
+    with (out_dir / "per_example.jsonl").open("w", encoding="utf-8") as f:
+        for i, (record, entry) in enumerate(zip(records, per_example)):
+            f.write(
+                json.dumps(
+                    {
+                        "i": i,
+                        "db_id": record["db_id"],
+                        "hardness": entry["hardness"],
+                        "exec": int(entry["exec"]),
+                        "exact": int(entry["exact"]),
+                    }
+                )
+                + "\n"
+            )
 
 
 if __name__ == "__main__":

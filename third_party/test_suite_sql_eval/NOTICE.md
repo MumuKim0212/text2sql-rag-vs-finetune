@@ -8,6 +8,15 @@ Modification to `evaluation.py`: `evaluate()` upstream only prints results via
 `print_scores()`; added `return scores` at the end so `rag_text2sql.eval` can
 consume the scores dict programmatically instead of scraping stdout.
 
+Second modification to `evaluation.py`: upstream's `entries` list already records
+one dict per example (gold/pred SQL, hardness, exact match) but is never returned;
+added the per-example `exec` result to it and exposed the list as
+`scores['per_example']`. Needed for paired significance tests (McNemar), which
+require knowing *which* examples each condition got right, not just how many.
+Aggregate scores are untouched: `entries` is only read, and the extra key sits
+outside the difficulty levels `print_scores()` and `summarize()` iterate. Note
+`entries` is only populated when `etype` is `"all"` or `"match"`.
+
 Modification to `exec_eval.py`: `exec_on_db_`/`exec_on_db` were `async def`, run
 one `asyncio.run(...)` per query by `eval_exec_match`. Made them plain functions
 called directly. The `asyncio.wait_for` timeout was unreachable -- `exec_on_db_`

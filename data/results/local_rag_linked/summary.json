@@ -3,5 +3,27 @@
   "plug_value": false,
   "test_suite_accuracy": 0.7263056092843327,
   "exact_match": 0.6798839458413927,
-  "n": 1034
+  "n": 1034,
+  "by_difficulty": {
+    "easy": {
+      "test_suite_accuracy": 0.9233870967741935,
+      "exact_match": 0.9314516129032258,
+      "n": 248
+    },
+    "medium": {
+      "test_suite_accuracy": 0.7825112107623319,
+      "exact_match": 0.6995515695067265,
+      "n": 446
+    },
+    "hard": {
+      "test_suite_accuracy": 0.5862068965517241,
+      "exact_match": 0.5689655172413793,
+      "n": 174
+    },
+    "extra": {
+      "test_suite_accuracy": 0.42771084337349397,
+      "exact_match": 0.3674698795180723,
+      "n": 166
+    }
+  }
 }

@@ -605,6 +605,7 @@ def evaluate(gold, predict, db_dir, etype, kmaps, plug_value, keep_distinct, pro
                 "where": []
                 }
 
+            exec_score = None  # [rag_text2sql] recorded per example in `entries` below
             if etype in ["all", "exec"]:
                 exec_score = eval_exec_match(db=db, p_str=p_str, g_str=g_str, plug_value=plug_value,
                                              keep_distinct=keep_distinct, progress_bar_for_each_datapoint=progress_bar_for_each_datapoint)
@@ -658,6 +659,7 @@ def evaluate(gold, predict, db_dir, etype, kmaps, plug_value, keep_distinct, pro
                     'goldSQL': g_str,
                     'hardness': hardness,
                     'exact': exact_score,
+                    'exec': exec_score,  # [rag_text2sql] added; None when etype == "match"
                     'partial': partial_scores
                 })
 
@@ -703,6 +705,7 @@ def evaluate(gold, predict, db_dir, etype, kmaps, plug_value, keep_distinct, pro
                         scores[level]['partial'][type_]['rec'] + scores[level]['partial'][type_]['acc'])
 
     print_scores(scores, etype, include_turn_acc=include_turn_acc)
+    scores['per_example'] = entries  # [rag_text2sql] per-example results for paired significance tests
     return scores  # [rag_text2sql] upstream only prints; we need the dict programmatically.
 
 
