@@ -142,7 +142,19 @@ def get_cursor_from_path(sqlite_path: str):
     return cursor
 
 
-async def exec_on_db_(sqlite_path: str, query: str) -> Tuple[str, Any]:
+# LOCAL MODIFICATION (see NOTICE.md): these two were `async def`, and the caller
+# below ran each one through its own `asyncio.run(...)`. The `asyncio.wait_for`
+# timeout that arrangement existed for could never fire: `exec_on_db_` contains
+# no `await`, so once the event loop starts the coroutine it runs to completion
+# without yielding, and the timeout callback only gets to run afterwards. So the
+# machinery bought nothing while costing an event loop per query -- about 80k of
+# them for one Spider dev run -- and on Windows each new loop builds its self-pipe
+# with socket.socketpair(), which has no native implementation and falls back to a
+# real TCP loopback connect/accept. That accept() deadlocked mid-run.
+# Made synchronous: identical semantics (the timeout was unreachable either way),
+# no event loops, no sockets. `timeout` is kept in the signature, unused, so the
+# call signature still matches upstream.
+def exec_on_db_(sqlite_path: str, query: str) -> Tuple[str, Any]:
     query = replace_cur_year(query)
     cursor = get_cursor_from_path(sqlite_path)
     try:
@@ -156,13 +168,11 @@ async def exec_on_db_(sqlite_path: str, query: str) -> Tuple[str, Any]:
         cursor.connection.close()
         return "exception", e
 
-async def exec_on_db(
+def exec_on_db(
     sqlite_path: str, query: str, process_id: str = "", timeout: int = TIMEOUT
 ) -> Tuple[str, Any]:
     try:
-        return await asyncio.wait_for(exec_on_db_(sqlite_path, query), timeout)
-    except asyncio.TimeoutError:
-        return ('exception', TimeoutError)
+        return exec_on_db_(sqlite_path, query)
     except Exception as e:
         return ("exception", e)
 
@@ -221,8 +231,8 @@ def eval_exec_match(db: str, p_str: str, g_str: str, plug_value: bool, keep_dist
             ranger = db_paths
 
         for db_path in ranger:
-            g_flag, g_denotation = asyncio.run(exec_on_db(db_path, g_str))
-            p_flag, p_denotation = asyncio.run(exec_on_db(db_path, pred))
+            g_flag, g_denotation = exec_on_db(db_path, g_str)  # LOCAL MODIFICATION: was asyncio.run(...)
+            p_flag, p_denotation = exec_on_db(db_path, pred)  # LOCAL MODIFICATION: was asyncio.run(...)
 
             # we should expect the gold to be succesfully executed on the database
             assert g_flag != 'exception', 'gold query %s has error on database file %s' % (g_str, db_path)
