@@ -1,0 +1,7 @@
+{
+  "condition": "local_ft",
+  "plug_value": false,
+  "test_suite_accuracy": 0.7572533849129593,
+  "exact_match": 0.7630560928433269,
+  "n": 1034
+}

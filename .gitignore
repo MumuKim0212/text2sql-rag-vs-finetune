@@ -26,6 +26,7 @@ adapters/
 # *.safetensors already drops them -- excluding the directory keeps a
 # config-and-tokenizer-without-weights half-state from being committed instead.
 *_adapter/
+*_adapter.zip
 adapter/
 
 .env
