@@ -1,9 +1,10 @@
 """Condition 3: build the RAG prompts for the Spider dev set, ahead of generation.
 
-Retrieval and schema linking run here (CPU, on the machine holding the Spider
-data); the GPU step only replays the finished prompts. Both variants are built
-in one pass so they share the exact same retrieved examples -- the pruned schema
-is then the only difference between them.
+Retrieval, schema linking and value linking run here (CPU, on the machine
+holding the Spider data); the GPU step only replays the finished prompts. All
+three variants are built in one pass so they share the exact same retrieved
+examples, leaving one deliberate difference each: 3b prunes the schema, 3c adds
+linked database values.
 
 Usage:
     uv run python scripts/build_rag_prompts.py
@@ -23,13 +24,16 @@ from rag_text2sql.data import (
 from rag_text2sql.rag import (
     build_prompt,
     encode,
+    load_db_values,
     load_embedder,
+    match_values,
     prune_schema,
     table_texts,
     top_k,
 )
 
 TABLES_JSON = Path("data/spider/tables.json")
+DB_DIR = Path("data/spider/database")  # canonical Spider DBs -- what a deployment would query
 
 
 def main() -> None:
@@ -60,16 +64,23 @@ def main() -> None:
     dev_db_ids = dev["db_id"]
     table_embeddings = {db: encode(embedder, table_texts(schemas[db])) for db in sorted(set(dev_db_ids))}
 
-    plain_path = args.out_dir / "local_rag" / "prompts.jsonl"
-    linked_path = args.out_dir / "local_rag_linked" / "prompts.jsonl"
-    for path in (plain_path, linked_path):
+    print(f"Reading cell values from {len(set(dev_db_ids))} dev databases...")
+    db_values = {db: load_db_values(DB_DIR / db / f"{db}.sqlite") for db in sorted(set(dev_db_ids))}
+
+    paths = {
+        "few-shot": args.out_dir / "local_rag" / "prompts.jsonl",
+        "+ schema linking": args.out_dir / "local_rag_linked" / "prompts.jsonl",
+        "+ value linking": args.out_dir / "local_rag_values" / "prompts.jsonl",
+    }
+    for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
 
     gold_sql = dev["query"]
-    n_pruned = 0
-    plain_lengths, linked_lengths = [], []
+    n_pruned = n_valued = n_hits = 0
+    lengths = {name: [] for name in paths}
 
-    with plain_path.open("w", encoding="utf-8") as plain_f, linked_path.open("w", encoding="utf-8") as linked_f:
+    files = {name: path.open("w", encoding="utf-8") for name, path in paths.items()}
+    try:
         for i, question in enumerate(dev_questions):
             db_id = dev_db_ids[i]
             schema = schemas[db_id]
@@ -78,21 +89,32 @@ def main() -> None:
             keep = top_k(dev_embeddings[i : i + 1], table_embeddings[db_id], args.top_k_tables)[0].tolist()
             n_pruned += len(keep) < len(schema["table_names_original"])
 
+            hits = match_values(question, db_values[db_id])
+            n_valued += bool(hits)
+            n_hits += len(hits)
+
             record = {"question": question, "db_id": db_id, "gold_sql": gold_sql[i]}
-            for f, schema_prompt, lengths in (
-                (plain_f, format_schema_prompt(schema), plain_lengths),
-                (linked_f, format_schema_prompt(prune_schema(schema, keep)), linked_lengths),
-            ):
-                prompt = build_prompt(schema_prompt, question, examples)
-                lengths.append(len(prompt))
-                f.write(json.dumps({**record, "prompt": prompt}, ensure_ascii=False) + "\n")
+            variants = (
+                ("few-shot", format_schema_prompt(schema), None),
+                ("+ schema linking", format_schema_prompt(prune_schema(schema, keep)), None),
+                ("+ value linking", format_schema_prompt(schema), hits),
+            )
+            for name, schema_prompt, values in variants:
+                prompt = build_prompt(schema_prompt, question, examples, values)
+                lengths[name].append(len(prompt))
+                files[name].write(json.dumps({**record, "prompt": prompt}, ensure_ascii=False) + "\n")
+    finally:
+        for f in files.values():
+            f.close()
 
     n = len(dev_questions)
-    print(f"\nWrote {n} prompts to {plain_path} and {linked_path}")
+    print(f"\nWrote {n} prompts to each of: {', '.join(str(p) for p in paths.values())}")
     print(f"Schema linking changed {n_pruned}/{n} ({n_pruned / n:.1%}) prompts "
           f"-- the rest are in databases with <= {args.top_k_tables} tables, where it is a no-op.")
-    for name, lengths in (("few-shot", plain_lengths), ("+ schema linking", linked_lengths)):
-        print(f"  {name:16s} prompt chars: median {statistics.median(lengths):.0f}, max {max(lengths)}")
+    print(f"Value linking attached at least one value to {n_valued}/{n} ({n_valued / n:.1%}) prompts, "
+          f"{n_hits / n:.1f} values per prompt on average.")
+    for name, values in lengths.items():
+        print(f"  {name:16s} prompt chars: median {statistics.median(values):.0f}, max {max(values)}")
 
 
 if __name__ == "__main__":
