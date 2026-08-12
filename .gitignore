@@ -35,3 +35,6 @@ adapter/
 .ipynb_checkpoints/
 
 .mcp.json
+
+# Scratch space for generated figures and other local-only working files.
+tmp/

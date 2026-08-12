@@ -116,11 +116,6 @@ train은 `xlangai/spider`의 train 스플릿(= 공식 `train_spider.json`, 7,000
 최고 조건(5번, 791/1034)도 클라우드 API(859)와 68개 차이가 남으며, 이는 문체가 아니라 의미 이해의 격차다.
 9. (확장) 동일 프레임워크를 BIRD 데이터셋에 재적용해 결론의 일반화 여부 검증
 
-## 포트폴리오 방향
-
-- 기존 DBot(경량 RAG 기반 Text-to-SQL) 프로젝트의 후속작으로 포지셔닝 — "RAG의 한계를 파인튜닝으로 어떻게 보완하는가"
-- AI Backend/Platform 관점 강조: 파인튜닝 자체보다 서빙 구조(비동기 처리, 어댑터 병합, 양자화/GGUF 변환, API 엔드포인트화)와 운영 관점(지연시간 프로파일링, 리소스 사용량)을 함께 다룰 것
-- 정량적 비교표가 핵심 자산 — 블로그 포스트/기술 문서의 중심 그래픽으로 사용
 
 ## 미확정 사항 (착수 시 확인 필요)
 
@@ -133,7 +128,7 @@ train은 `xlangai/spider`의 train 스플릿(= 공식 `train_spider.json`, 7,000
 *2026-08-10: 최신 동향 조사 반영 (벤치마크 확장 계획, 로컬 모델/서빙 스택, 평가지표, RAG 기법 업데이트)*
 *2026-08-10: 클라우드 API 베이스라인을 Anthropic API에서 Google Gemini로 확정 (보유 API 키 기준). 20개 파일럿에서 test-suite accuracy 0.9 확인 후 전환*
 *2026-08-10: 조건 2 진행 방식을 노트북(Colab, 생성) + 스크립트(로컬, 채점) 분리로 정리*
-*2026-08-12: 조건 4 어댑터는 git 비추적으로 결정 — r=64를 7개 projection 전부에 걸어 학습 파라미터가 약 160M이고 fp32 저장이라 가중치가 646MB로 GitHub의 파일당 100MB 한계를 넘는다. `*_adapter/`로 디렉터리째 제외해 "가중치 없는 설정만 커밋되는" 반쪽 상태를 막았다. **학습은 비트 단위 재현이 안 되므로 이 어댑터는 유일본이다** — 잃으면 재학습해야 하고, 포트폴리오 배포까지 고려하면 Hugging Face Hub에 올려두는 편이 맞다(미정). 학습 입력(`train_messages.jsonl`)과 노트북은 추적되므로 절차 자체는 재현 가능*
+*2026-08-12: 조건 4 어댑터는 git 비추적으로 결정 — r=64를 7개 projection 전부에 걸어 학습 파라미터가 약 160M이고 fp32 저장이라 가중치가 646MB로 GitHub의 파일당 100MB 한계를 넘는다. `*_adapter/`로 디렉터리째 제외해 "가중치 없는 설정만 커밋되는" 반쪽 상태를 막았다. **학습은 비트 단위 재현이 안 되므로 이 어댑터는 유일본이다** — 잃으면 재학습해야 하므로 Hugging Face Hub에 공개로 올려 보관했다 — [KimMumu/qwen2.5-coder-7b-spider-qlora](https://huggingface.co/KimMumu/qwen2.5-coder-7b-spider-qlora). 학습 입력(`train_messages.jsonl`)과 노트북은 추적되므로 절차 자체는 재현 가능*
 *2026-08-12: 채점 속도 문제 해결 — 벤더링한 평가 코드가 쿼리마다 `asyncio.run()`으로 이벤트 루프를 만들었고(Spider dev 1회 채점에 약 8만 개), Windows에서는 이벤트 루프마다 `socket.socketpair()`가 실제 TCP 루프백 연결로 대체돼 채점이 수 시간 걸리고 간헐적으로 교착됐다. 동기 호출로 바꿔 **1,034개 채점이 37초**로 줄었다. 타임아웃은 원래 도달 불가능한 코드였으므로(코루틴에 `await`가 없어 `wait_for`가 선점 불가) 의미론은 동일하며, 기록된 5개 조건 전부 점수가 동일하게 재현되는 것을 확인했다 — `third_party/test_suite_sql_eval/NOTICE.md` 참고*
 *2026-08-12: 조건 3을 schema linking 없는 변형(`local_rag`)과 포함 변형(`local_rag_linked`) 둘로 나눠 측정하기로 결정. 검색·프롬프트 조립은 로컬 CPU에서 미리 끝내고(`scripts/build_rag_prompts.py`) Colab은 완성된 프롬프트를 재생만 함 — 두 변형이 동일한 few-shot 예제를 쓰게 되어 차이가 스키마 축소에서만 나온다*
 *2026-08-11: 채점 기본값을 `plug_value=False`(공식 Spider 기본값)로 확정 — 리더보드 비교 가능성을 유지하기 위함. 조건 1은 `plug_value=True`로 측정됐으므로 재채점 필요(RESULTS.md 참고)*

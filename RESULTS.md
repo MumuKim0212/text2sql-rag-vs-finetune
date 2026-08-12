@@ -281,13 +281,13 @@ Exact Match만 +11.8%p 오른 게 그 증거다.
    조건 4는 그 Spider train으로 파인튜닝하므로 같은 문체를 가중치에 직접 넣는다. 조건 5에서 few-shot을
    또 넣으면 이미 학습한 걸 프롬프트로 중복 공급하는 셈이라, "파인튜닝 위에 RAG가 무엇을 더하는가"라는
    질문이 흐려진다. 값 주입은 파인튜닝이 원리적으로 줄 수 없는 것(dev DB의 실제 셀 값)만 공급하므로 겹치지 않는다.
-3. **운영 지표가 더 낫다** — 프롬프트가 절반이라 지연시간과 컨텍스트 비용이 줄고, 이는 브리프가
-   포트폴리오 방향으로 못박은 "서빙 구조·운영 관점"과 맞는다.
+3. **운영 지표가 더 낫다** — 프롬프트가 절반이라 지연시간과 컨텍스트 비용이 줄어든다.
 
 결과적으로 조건 2 / 3d / 4 / 5가 **RAG(값 주입) × 파인튜닝**의 2×2가 된다.
 
 ## 조건 4: QLoRA 파인튜닝 (RAG 없음)
 
+- 어댑터: [KimMumu/qwen2.5-coder-7b-spider-qlora](https://huggingface.co/KimMumu/qwen2.5-coder-7b-spider-qlora) (공개) — 가중치 646MB로 git 비추적
 - 학습 데이터: `data/results/local_ft/train_messages.jsonl` (Spider train 7,000개, 조건 2 프롬프트 형식)
 - 학습: Colab T4에서 `notebooks/condition4_finetune_colab.ipynb` (QLoRA NF4, r=64, alpha=16, lr 2e-4, 1 에폭 433스텝)
 - 생성: `notebooks/condition45_lora_serve_colab.ipynb` — 조건 2·3과 **동일한 AWQ 베이스**에 어댑터만 얹음
