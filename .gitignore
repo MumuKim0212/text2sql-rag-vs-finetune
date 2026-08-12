@@ -21,6 +21,12 @@ data/spider/*
 *.safetensors
 checkpoints/
 adapters/
+# A trained adapter directory as a whole: its weights are 646MB (r=64 across all
+# seven projections, saved fp32), past GitHub's 100MB per-file limit, and
+# *.safetensors already drops them -- excluding the directory keeps a
+# config-and-tokenizer-without-weights half-state from being committed instead.
+*_adapter/
+adapter/
 
 .env
 .env.*
