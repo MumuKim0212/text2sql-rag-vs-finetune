@@ -1,0 +1,29 @@
+{
+  "condition": "local_ft_others",
+  "plug_value": false,
+  "test_suite_accuracy": 0.4200913242009132,
+  "exact_match": 0.1141552511415525,
+  "n": 1095,
+  "by_difficulty": {
+    "easy": {
+      "test_suite_accuracy": 0.6153846153846154,
+      "exact_match": 0.5538461538461539,
+      "n": 65
+    },
+    "medium": {
+      "test_suite_accuracy": 0.5473684210526316,
+      "exact_match": 0.18947368421052632,
+      "n": 190
+    },
+    "hard": {
+      "test_suite_accuracy": 0.41422594142259417,
+      "exact_match": 0.13807531380753138,
+      "n": 239
+    },
+    "extra": {
+      "test_suite_accuracy": 0.3610648918469218,
+      "exact_match": 0.033277870216306155,
+      "n": 601
+    }
+  }
+}

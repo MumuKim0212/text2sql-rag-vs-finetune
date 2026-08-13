@@ -1,0 +1,29 @@
+{
+  "condition": "local_base_others",
+  "plug_value": false,
+  "test_suite_accuracy": 0.4191780821917808,
+  "exact_match": 0.091324200913242,
+  "n": 1095,
+  "by_difficulty": {
+    "easy": {
+      "test_suite_accuracy": 0.8153846153846154,
+      "exact_match": 0.6,
+      "n": 65
+    },
+    "medium": {
+      "test_suite_accuracy": 0.5105263157894737,
+      "exact_match": 0.14736842105263157,
+      "n": 190
+    },
+    "hard": {
+      "test_suite_accuracy": 0.4476987447698745,
+      "exact_match": 0.06276150627615062,
+      "n": 239
+    },
+    "extra": {
+      "test_suite_accuracy": 0.33610648918469216,
+      "exact_match": 0.029950083194675542,
+      "n": 601
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "variant": "local_base_others",
+  "gpu": "Tesla T4",
+  "adapter": false,
+  "batch_size": 32,
+  "measured_examples": 1095,
+  "total_seconds": 181.3,
+  "seconds_per_example": 0.166,
+  "examples_per_second": 6.04,
+  "median_batch_seconds": 5.32,
+  "median_prompt_chars": 1492,
+  "generation_peak_vram_gb": 12.19,
+  "peak_reserved_vram_gb": 12.54
+}
