@@ -38,6 +38,15 @@ CONDITIONS = {
     "local_ft_rag": "5. + 파인튜닝 + 값",
     "local_rag_values_only_v2": "3d′. + 값 주입 (매처 v2)",
     "local_ft_rag_v2": "5′. + 파인튜닝 + 값 (매처 v2)",
+    "local_base_others": "2. 로컬 베이스 (train_others)",
+    "local_ft_others": "4. + 파인튜닝 (train_others)",
+}
+
+# Conditions are only ever compared within an evaluation set: dev has 1034 examples
+# and train_others 1095, and every comparison here is paired example-by-example.
+EVAL_SETS = {
+    "Spider dev (n=1034)": [c for c in CONDITIONS if not c.endswith("_others")],
+    "train_others (n=1095)": [c for c in CONDITIONS if c.endswith("_others")],
 }
 
 # (baseline, treatment, what the treatment adds)
@@ -54,6 +63,7 @@ PAIRS = [
     ("local_ft", "local_ft_rag_v2", "값 주입 v2 (파인튜닝 위)"),
     ("local_rag_values_only", "local_rag_values_only_v2", "매처 v1 → v2 (단독)"),
     ("local_ft_rag", "local_ft_rag_v2", "매처 v1 → v2 (파인튜닝 위)"),
+    ("local_base_others", "local_ft_others", "QLoRA 파인튜닝 (train_others)"),
 ]
 
 # Each set holds the two independent measurements of one matcher's value-injection
@@ -345,24 +355,29 @@ def print_gap_taxonomy(per_example: dict[str, list[dict]]) -> None:
 
 
 def main() -> None:
-    # Conditions are measured in waves, so a listed one may not be scored yet.
-    per_example = {
-        cond: load_per_example(cond)
-        for cond in CONDITIONS
-        if (RESULTS_DIR / cond / "per_example.jsonl").exists()
-    }
-    pending = [cond for cond in CONDITIONS if cond not in per_example]
-    if pending:
-        print(f"아직 채점되지 않아 제외: {', '.join(pending)}")
-    sizes = {len(v) for v in per_example.values()}
-    if len(sizes) != 1:
-        raise RuntimeError(f"conditions have different example counts: {sizes}")
+    for eval_set, conditions in EVAL_SETS.items():
+        # Conditions are measured in waves, so a listed one may not be scored yet.
+        per_example = {
+            cond: load_per_example(cond)
+            for cond in conditions
+            if (RESULTS_DIR / cond / "per_example.jsonl").exists()
+        }
+        pending = [cond for cond in conditions if cond not in per_example]
+        print(f"\n\n# {eval_set}")
+        if pending:
+            print(f"\n아직 채점되지 않아 제외: {', '.join(pending)}")
+        if not per_example:
+            continue
+        sizes = {len(v) for v in per_example.values()}
+        if len(sizes) != 1:
+            raise RuntimeError(f"{eval_set}: conditions have different example counts: {sizes}")
 
-    print_difficulty_table(per_example)
-    print_difficulty_deltas(per_example)
-    print_mcnemar(per_example)
-    print_parse_failures(per_example)
-    print_gap_taxonomy(per_example)
+        print_difficulty_table(per_example)
+        print_difficulty_deltas(per_example)
+        print_mcnemar(per_example)
+        print_parse_failures(per_example)
+        if "cloud_baseline" in per_example and "local_ft_rag" in per_example:
+            print_gap_taxonomy(per_example)
 
 
 if __name__ == "__main__":
