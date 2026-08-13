@@ -1,0 +1,29 @@
+{
+  "condition": "local_ft_rag_v2",
+  "plug_value": false,
+  "test_suite_accuracy": 0.7669245647969052,
+  "exact_match": 0.7630560928433269,
+  "n": 1034,
+  "by_difficulty": {
+    "easy": {
+      "test_suite_accuracy": 0.9153225806451613,
+      "exact_match": 0.8991935483870968,
+      "n": 248
+    },
+    "medium": {
+      "test_suite_accuracy": 0.8318385650224215,
+      "exact_match": 0.8385650224215246,
+      "n": 446
+    },
+    "hard": {
+      "test_suite_accuracy": 0.6379310344827587,
+      "exact_match": 0.6264367816091954,
+      "n": 174
+    },
+    "extra": {
+      "test_suite_accuracy": 0.5060240963855421,
+      "exact_match": 0.5,
+      "n": 166
+    }
+  }
+}
