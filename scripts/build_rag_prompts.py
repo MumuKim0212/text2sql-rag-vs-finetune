@@ -43,6 +43,9 @@ def main() -> None:
     # table the gold query needs in 6 cases instead of 22.
     parser.add_argument("--top-k-tables", type=int, default=5, help="tables kept by schema linking")
     parser.add_argument("--out-dir", type=Path, default=Path("data/results"))
+    # A measured condition's prompts are the record of what was actually run, so a
+    # rebuild under changed settings goes to its own directories rather than over them.
+    parser.add_argument("--tag", default="", help="suffix for the output directories, e.g. _v2")
     args = parser.parse_args()
 
     spider = load_spider()
@@ -68,10 +71,10 @@ def main() -> None:
     db_values = {db: load_db_values(DB_DIR / db / f"{db}.sqlite") for db in sorted(set(dev_db_ids))}
 
     paths = {
-        "few-shot": args.out_dir / "local_rag" / "prompts.jsonl",
-        "+ schema linking": args.out_dir / "local_rag_linked" / "prompts.jsonl",
-        "+ value linking": args.out_dir / "local_rag_values" / "prompts.jsonl",
-        "values only": args.out_dir / "local_rag_values_only" / "prompts.jsonl",
+        "few-shot": args.out_dir / f"local_rag{args.tag}" / "prompts.jsonl",
+        "+ schema linking": args.out_dir / f"local_rag_linked{args.tag}" / "prompts.jsonl",
+        "+ value linking": args.out_dir / f"local_rag_values{args.tag}" / "prompts.jsonl",
+        "values only": args.out_dir / f"local_rag_values_only{args.tag}" / "prompts.jsonl",
     }
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -36,6 +36,8 @@ CONDITIONS = {
     "local_rag_values_only": "3d. + 값 주입",
     "local_ft": "4. + 파인튜닝",
     "local_ft_rag": "5. + 파인튜닝 + 값",
+    "local_rag_values_only_v2": "3d′. + 값 주입 (매처 v2)",
+    "local_ft_rag_v2": "5′. + 파인튜닝 + 값 (매처 v2)",
 }
 
 # (baseline, treatment, what the treatment adds)
@@ -48,10 +50,20 @@ PAIRS = [
     ("local_base", "local_ft", "QLoRA 파인튜닝"),
     ("local_rag_values_only", "local_ft_rag", "QLoRA 파인튜닝 (값 위)"),
     ("local_ft_rag", "cloud_baseline", "로컬 최고 → 클라우드"),
+    ("local_base", "local_rag_values_only_v2", "값 주입 v2 (단독)"),
+    ("local_ft", "local_ft_rag_v2", "값 주입 v2 (파인튜닝 위)"),
+    ("local_rag_values_only", "local_rag_values_only_v2", "매처 v1 → v2 (단독)"),
+    ("local_ft_rag", "local_ft_rag_v2", "매처 v1 → v2 (파인튜닝 위)"),
 ]
 
-# The two independent measurements of the value-injection effect, combined below.
-VALUE_REPLICATIONS = [("local_base", "local_rag_values_only"), ("local_ft", "local_ft_rag")]
+# Each set holds the two independent measurements of one matcher's value-injection
+# effect -- with and without fine-tuning -- which Fisher's method combines. v1 and
+# v2 are NOT independent of each other (same 1034 examples), so they never combine
+# across sets; each is reported on its own.
+VALUE_REPLICATIONS = {
+    "매처 v1": [("local_base", "local_rag_values_only"), ("local_ft", "local_ft_rag")],
+    "매처 v2": [("local_base", "local_rag_values_only_v2"), ("local_ft", "local_ft_rag_v2")],
+}
 
 DIFFICULTIES = ("easy", "medium", "hard", "extra")
 
@@ -103,13 +115,19 @@ def fmt_p(p: float) -> str:
     return f"{p:.3g}" if p >= 1e-4 else "<1e-4"
 
 
+def available_pairs(per_example: dict[str, list[dict]]) -> list[tuple[str, str, str]]:
+    """The comparisons both of whose conditions have been scored."""
+    return [(b, t, label) for b, t, label in PAIRS if b in per_example and t in per_example]
+
+
 def print_difficulty_table(per_example: dict[str, list[dict]]) -> None:
     print("\n## 난이도별 Test-Suite Accuracy (정답 수 / 문항 수)\n")
-    counts = {d: sum(1 for r in per_example["local_base"] if r["hardness"] == d) for d in DIFFICULTIES}
+    any_rows = next(iter(per_example.values()))
+    counts = {d: sum(1 for r in any_rows if r["hardness"] == d) for d in DIFFICULTIES}
     print("| 조건 | " + " | ".join(f"{d} (n={counts[d]})" for d in DIFFICULTIES) + " | all |")
     print("|---" * (len(DIFFICULTIES) + 2) + "|")
-    for cond, label in CONDITIONS.items():
-        rows = per_example[cond]
+    for cond, rows in per_example.items():
+        label = CONDITIONS[cond]
         cells = []
         for d in DIFFICULTIES:
             hit = sum(r["exec"] for r in rows if r["hardness"] == d)
@@ -122,7 +140,7 @@ def print_difficulty_deltas(per_example: dict[str, list[dict]]) -> None:
     print("\n## 기법별 난이도 구간 기여 (Test-Suite Accuracy 정답 수 변화)\n")
     print("| 추가한 것 | " + " | ".join(DIFFICULTIES) + " | 합계 |")
     print("|---" * (len(DIFFICULTIES) + 2) + "|")
-    for base, treat, label in PAIRS:
+    for base, treat, label in available_pairs(per_example):
         cells = []
         for d in DIFFICULTIES:
             delta = sum(r["exec"] for r in per_example[treat] if r["hardness"] == d) - sum(
@@ -137,7 +155,7 @@ def print_mcnemar(per_example: dict[str, list[dict]]) -> None:
     print("\n## McNemar 정확검정 (양측)\n")
     print("| 추가한 것 | 지표 | 얻음 | 잃음 | 순변화 | p |")
     print("|---|---|---|---|---|---|")
-    for base, treat, label in PAIRS:
+    for base, treat, label in available_pairs(per_example):
         for metric in ("exec", "exact"):
             r = mcnemar_exact(
                 [x[metric] for x in per_example[base]],
@@ -146,14 +164,17 @@ def print_mcnemar(per_example: dict[str, list[dict]]) -> None:
             name = "실행" if metric == "exec" else "EM"
             print(f"| {label} | {name} | {r['gained']} | {r['lost']} | {r['net']:+d} | {fmt_p(r['p'])} |")
 
-    p_values = [
-        mcnemar_exact([x["exec"] for x in per_example[b]], [x["exec"] for x in per_example[t]])["p"]
-        for b, t in VALUE_REPLICATIONS
-    ]
-    print(
-        f"\n값 주입 두 독립 측정({' , '.join(f'p={fmt_p(p)}' for p in p_values)})의 "
-        f"Fisher 결합: **p = {fmt_p(fisher_combined(p_values))}**"
-    )
+    for name, replications in VALUE_REPLICATIONS.items():
+        if not all(c in per_example for pair in replications for c in pair):
+            continue
+        p_values = [
+            mcnemar_exact([x["exec"] for x in per_example[b]], [x["exec"] for x in per_example[t]])["p"]
+            for b, t in replications
+        ]
+        print(
+            f"\n{name}: 값 주입 두 독립 측정({' , '.join(f'p={fmt_p(p)}' for p in p_values)})의 "
+            f"Fisher 결합: **p = {fmt_p(fisher_combined(p_values))}**"
+        )
 
 
 def _strip_conds(clause: list) -> list:
@@ -262,9 +283,9 @@ def print_parse_failures(per_example: dict[str, list[dict]]) -> None:
     print("|---|---|---|---|")
     schema_cache: dict = {}
     unparseable: dict[str, set[int]] = {}
-    for cond, label in CONDITIONS.items():
+    for cond, rows in per_example.items():
+        label = CONDITIONS[cond]
         records = load_predictions(cond)
-        rows = per_example[cond]
         failed = set()
         for i, r in enumerate(records):
             db_id = r["db_id"]
@@ -281,7 +302,7 @@ def print_parse_failures(per_example: dict[str, list[dict]]) -> None:
     print("\n각 기법이 얻은 Exact Match 중, 베이스라인에서 파싱 실패였을 뿐인 몫:\n")
     print("| 추가한 것 | EM 얻음 | 그중 베이스라인이 파싱 실패 |")
     print("|---|---|---|")
-    for base, treat, label in PAIRS:
+    for base, treat, label in available_pairs(per_example):
         gained = [
             i
             for i, (b, t) in enumerate(zip(per_example[base], per_example[treat]))
@@ -324,7 +345,15 @@ def print_gap_taxonomy(per_example: dict[str, list[dict]]) -> None:
 
 
 def main() -> None:
-    per_example = {cond: load_per_example(cond) for cond in CONDITIONS}
+    # Conditions are measured in waves, so a listed one may not be scored yet.
+    per_example = {
+        cond: load_per_example(cond)
+        for cond in CONDITIONS
+        if (RESULTS_DIR / cond / "per_example.jsonl").exists()
+    }
+    pending = [cond for cond in CONDITIONS if cond not in per_example]
+    if pending:
+        print(f"아직 채점되지 않아 제외: {', '.join(pending)}")
     sizes = {len(v) for v in per_example.values()}
     if len(sizes) != 1:
         raise RuntimeError(f"conditions have different example counts: {sizes}")

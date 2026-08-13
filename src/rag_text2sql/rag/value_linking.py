@@ -55,6 +55,37 @@ def load_db_values(sqlite_path: str | Path) -> list[tuple[str, str, str]]:
     return values
 
 
+# Questions inflect the values they mention: "cats" for 'cat', "Asian" for 'Asia',
+# "European" for 'Europe'. A closed list rather than a stemmer -- it has to add
+# recall without letting 'car' fire on "caring", and these cover what Spider dev
+# actually asks. Longest first so the alternation prefers the fuller suffix.
+SUFFIXES = ("ians", "ian", "ese", "ish", "ans", "an", "es", "s", "n")
+
+
+def _forms(value: str) -> set[str]:
+    """The spellings of a value worth looking for in a question.
+
+    Some values are written closed-up where the question spaces them out
+    ('NorthCarolina' vs "North Carolina"), so a camel-case split is tried too.
+    """
+    lowered = value.lower()
+    spaced = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", value).lower()
+    return {lowered, spaced}
+
+
+def _pattern(form: str) -> str:
+    """A regex matching `form` as a whole word, tolerating an inflected ending.
+
+    `\\b` is wrong here: it needs a word character on its side, so a value ending
+    in punctuation -- 'amc hornet sportabout (sw)' -- never matched even when the
+    question contained it verbatim. Lookarounds for a word character have the
+    same effect on alphanumeric values and also work on the rest.
+    """
+    suffixes = "|".join(SUFFIXES) if form[-1:].isalpha() else ""
+    tail = f"(?:{suffixes})?" if suffixes else ""
+    return r"(?<!\w)" + re.escape(form) + tail + r"(?!\w)"
+
+
 def match_values(
     question: str, values: list[tuple[str, str, str]], max_hits: int = MAX_HITS
 ) -> list[tuple[str, str, str]]:
@@ -68,7 +99,7 @@ def match_values(
     hits = {
         (table, column, value)
         for table, column, value in values
-        if re.search(r"\b" + re.escape(value.lower()) + r"\b", lowered)
+        if any(re.search(_pattern(form), lowered) for form in _forms(value))
     }
     # Longest first -- a longer value is a more specific match than a substring of it.
     return sorted(hits, key=lambda hit: (-len(hit[2]), hit))[:max_hits]

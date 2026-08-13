@@ -106,8 +106,41 @@ def test_match_values_requires_whole_words():
     values = [("Pets", "PetType", "cat")]
 
     assert match_values("How many pets are in each category?", values) == []
-    assert match_values("How many cats?", values) == []  # plural is not the stored value
     assert match_values("Show me every cat.", values) == [("Pets", "PetType", "cat")]
+
+
+def test_match_values_follows_the_questions_inflection():
+    """Questions pluralise and adjectivise the values they mention; the DB stores the stem."""
+    values = [("Pets", "PetType", "cat"), ("country", "Continent", "Asia")]
+
+    assert ("Pets", "PetType", "cat") in match_values("Which students own cats?", values)
+    assert ("country", "Continent", "Asia") in match_values("Which Asian countries?", values)
+
+
+def test_match_values_does_not_accept_arbitrary_endings():
+    """The inflection list has to buy recall without letting a short value run wild."""
+    values = [("cars_data", "Make", "car")]
+
+    assert match_values("Who is caring for the pets?", values) == []
+    assert match_values("What is in the cargo?", values) == []
+
+
+def test_match_values_handles_a_value_ending_in_punctuation():
+    r"""\b needs a word character beside it, so ')' or '!' used to defeat the match."""
+    values = [("cars", "Model", "amc hornet sportabout (sw)")]
+
+    hits = match_values("What is the accelerate of the car make amc hornet sportabout (sw)?", values)
+
+    assert hits == [("cars", "Model", "amc hornet sportabout (sw)")]
+
+
+def test_match_values_splits_closed_up_values():
+    """'NorthCarolina' is stored closed-up where the question spaces it out."""
+    values = [("Addresses", "state_province_county", "NorthCarolina")]
+
+    hits = match_values("students who live in North Carolina", values)
+
+    assert hits == [("Addresses", "state_province_county", "NorthCarolina")]
 
 
 def test_match_values_is_capped():
